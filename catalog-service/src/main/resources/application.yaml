@@ -6,6 +6,11 @@ server:
 spring:
   application:
     name: catalog-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs}
 
   datasource:
     # URL, Username e Password NON hanno valori di fallback predefiniti per le credenziali
@@ -34,6 +39,11 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+
+security:
+  jwt:
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000/realms/ecommerce}
+    audience: ${JWT_AUDIENCE:catalog-service}
 
 management:
   endpoints:

@@ -19,9 +19,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "products")
 @Data
-@Builder
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Builder // Lombok genera un builder annidato in Product, che può usare il costruttore privato ovunque.
+@AllArgsConstructor(access = AccessLevel.PRIVATE) // genera un costruttore che accetta tutti i campi di Product, ma lo rende private: solo la classe Product può chiamarlo direttamente.
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // genera un costruttore senza parametri, con accesso protected. Serve a JPA/Hibernate per ricreare l’entità quando la legge dal database.
 public class Product {
 
     @Id

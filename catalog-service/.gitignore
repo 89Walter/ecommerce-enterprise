@@ -1,6 +1,7 @@
 # Environment Variables & Secrets
 .env
 *.env
+CONCETTI-CATALOG-SERVICE.txt
 
 # Target directories (Maven build output)
 target/

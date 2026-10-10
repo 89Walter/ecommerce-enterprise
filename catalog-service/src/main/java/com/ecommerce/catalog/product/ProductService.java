@@ -28,6 +28,7 @@ public class ProductService {
     }
 
     private static Product mappingRequestWithDao(ProductRequest request) {
+
         return Product.builder()
                 .name(request.name().trim())
                 .description(request.description())

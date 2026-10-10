@@ -22,6 +22,24 @@ services:
     volumes:
       - redis_catalog_data:/data
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    container_name: catalog-keycloak
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname=http://localhost:9000
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:9000:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./src/main/resources/keycloak:/opt/keycloak/data/import:ro
+    restart: unless-stopped
+
 volumes:
   mysql_catalog_data:
   redis_catalog_data:
+  keycloak_data:
