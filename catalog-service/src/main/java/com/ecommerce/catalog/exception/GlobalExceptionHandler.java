@@ -13,6 +13,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductNotFound(ProductNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(exception.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorResponse> handleValidationErrors(
             MethodArgumentNotValidException exception

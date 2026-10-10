@@ -1,6 +1,7 @@
 package com.ecommerce.catalog.product;
 
 import com.ecommerce.catalog.config.SecurityConfiguration;
+import com.ecommerce.catalog.exception.ProductNotFoundException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -112,6 +113,15 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Keyboard"));
+    }
+
+    @Test
+    void returnsCustomNotFoundMessageWhenProductIdDoesNotExist() throws Exception {
+        given(productService.findById(999L)).willThrow(new ProductNotFoundException(999L));
+
+        mockMvc.perform(get("/products/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Prodotto con ID 999 non trovato."));
     }
 
     @Test

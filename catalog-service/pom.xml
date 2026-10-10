@@ -46,6 +46,14 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- Riavvio automatico durante lo sviluppo -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Spring Data JPA per MySQL -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
