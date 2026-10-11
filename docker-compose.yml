@@ -1,7 +1,9 @@
 # Ambiente locale completo dell'e-commerce.
 #
 #   docker compose up -d                  -> solo infrastruttura (MySQL, Redis, RabbitMQ, Keycloak)
-#   docker compose --profile apps up -d   -> infrastruttura + tutti i microservizi + gateway
+#   docker compose --profile apps up -d   -> infrastruttura + microservizi + gateway + frontend
+#
+# "rabbitmq-setup" non resta acceso: crea gli utenti RabbitMQ dei servizi e termina (Exited 0 è lo stato corretto).
 #
 # Le password vengono lette dal file .env nella stessa cartella (vedi .env.example).
 # Tutte le porte sono pubblicate solo su 127.0.0.1.
@@ -13,22 +15,26 @@ x-service-defaults: &service-defaults
   profiles: ["apps"]
   networks: [ecommerce]
 
-x-jwt-environment: &jwt-environment
+# Variabili comuni a tutti i microservizi. Un solo anchor per servizio: "<<: [*a, *b]" è YAML valido,
+# ma il plugin Docker di IntelliJ lo segnala come errore ("Single value is expected").
+x-app-environment: &app-environment
   # L'issuer deve coincidere con il claim "iss" dei token, emessi con l'hostname pubblico di Keycloak.
   JWT_ISSUER_URI: http://localhost:${KEYCLOAK_HOST_PORT:-9000}/realms/ecommerce
   # Le chiavi pubbliche si scaricano invece dalla rete interna di Docker.
   JWT_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+  # Swagger UI e /v3/api-docs: utili in sviluppo, da spegnere (false) in produzione.
+  API_DOCS_ENABLED: ${API_DOCS_ENABLED:-true}
 
-x-rabbit-environment: &rabbit-environment
+# Come sopra, più il broker per i servizi che pubblicano e consumano eventi.
+x-messaging-app-environment: &messaging-app-environment
+  <<: *app-environment
   RABBITMQ_HOST: rabbitmq
   RABBITMQ_PORT: 5672
-  RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Imposta RABBITMQ_USERNAME nel file .env}
-  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Imposta RABBITMQ_PASSWORD nel file .env}
 
 services:
   # ---------------------------------------------------------------- infrastruttura
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4.11
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Imposta MYSQL_ROOT_PASSWORD nel file .env}
@@ -43,7 +49,8 @@ services:
       - mysql_data:/var/lib/mysql
       - ./infra/mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      # Password passata con MYSQL_PWD e non con -p: non compare nella lista dei processi.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -51,7 +58,7 @@ services:
     networks: [ecommerce]
 
   redis:
-    image: redis:7.2-alpine
+    image: redis:8.10.2-alpine
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Imposta REDIS_PASSWORD nel file .env}", "--appendonly", "yes"]
     ports:
@@ -59,16 +66,20 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 20
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Letta da redis-cli per autenticarsi, così la password non va passata con -a sulla riga di comando.
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
     networks: [ecommerce]
 
   rabbitmq:
-    image: rabbitmq:4.1-management-alpine
+    image: rabbitmq:4.3.6-management-alpine
+    # Nome host fisso: RabbitMQ salva i dati in una cartella legata al nome del nodo (rabbit@<hostname>).
+    # Senza, ogni container ricreato riparte con un database vuoto e perde code, utenti e permessi.
+    hostname: rabbitmq
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Imposta RABBITMQ_USERNAME nel file .env}
@@ -86,8 +97,25 @@ services:
       start_period: 20s
     networks: [ecommerce]
 
+  # Crea un utente RabbitMQ per servizio con i soli permessi necessari (vedi lo script).
+  rabbitmq-setup:
+    image: curlimages/curl:8.22.0
+    restart: "no"
+    entrypoint: ["/bin/sh", "/setup/setup-service-users.sh"]
+    environment:
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      ORDER_RABBITMQ_PASSWORD: ${ORDER_RABBITMQ_PASSWORD:?Imposta ORDER_RABBITMQ_PASSWORD nel file .env}
+      PAYMENT_RABBITMQ_PASSWORD: ${PAYMENT_RABBITMQ_PASSWORD:?Imposta PAYMENT_RABBITMQ_PASSWORD nel file .env}
+      SHIPPING_RABBITMQ_PASSWORD: ${SHIPPING_RABBITMQ_PASSWORD:?Imposta SHIPPING_RABBITMQ_PASSWORD nel file .env}
+    volumes:
+      - ./infra/rabbitmq:/setup:ro
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+    networks: [ecommerce]
+
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.3
+    image: quay.io/keycloak/keycloak:26.7.5
     restart: unless-stopped
     command:
       - start-dev
@@ -116,7 +144,7 @@ services:
     <<: *service-defaults
     build: ./catalog-service
     environment:
-      <<: *jwt-environment
+      <<: *app-environment
       DB_HOST: mysql
       CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
       REDIS_HOST: redis
@@ -130,13 +158,15 @@ services:
     <<: *service-defaults
     build: ./order-service
     environment:
-      <<: [*jwt-environment, *rabbit-environment]
+      <<: *messaging-app-environment
       DB_HOST: mysql
       ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      ORDER_RABBITMQ_PASSWORD: ${ORDER_RABBITMQ_PASSWORD}
       CATALOG_SERVICE_URL: http://catalog-service:8081/api/v1/catalog
     depends_on:
       mysql: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
       catalog-service: { condition: service_started }
 
@@ -144,7 +174,7 @@ services:
     <<: *service-defaults
     build: ./user-service
     environment:
-      <<: *jwt-environment
+      <<: *app-environment
       DB_HOST: mysql
       USER_DB_PASSWORD: ${USER_DB_PASSWORD}
     depends_on:
@@ -155,45 +185,70 @@ services:
     <<: *service-defaults
     build: ./payment-service
     environment:
-      <<: [*jwt-environment, *rabbit-environment]
+      <<: *messaging-app-environment
       DB_HOST: mysql
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      PAYMENT_RABBITMQ_PASSWORD: ${PAYMENT_RABBITMQ_PASSWORD}
     depends_on:
       mysql: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
 
   shipping-service:
     <<: *service-defaults
     build: ./shipping-service
     environment:
-      <<: [*jwt-environment, *rabbit-environment]
+      <<: *messaging-app-environment
       DB_HOST: mysql
       SHIPPING_DB_PASSWORD: ${SHIPPING_DB_PASSWORD}
+      SHIPPING_RABBITMQ_PASSWORD: ${SHIPPING_RABBITMQ_PASSWORD}
     depends_on:
       mysql: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
+      rabbitmq-setup: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
 
   gateway-service:
     <<: *service-defaults
     build: ./gateway-service
     environment:
-      <<: *jwt-environment
+      <<: *app-environment
       CATALOG_SERVICE_URL: http://catalog-service:8081
       ORDER_SERVICE_URL: http://order-service:8082
       USER_SERVICE_URL: http://user-service:8083
       PAYMENT_SERVICE_URL: http://payment-service:8084
       SHIPPING_SERVICE_URL: http://shipping-service:8085
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      GATEWAY_RATE_LIMIT_PER_SECOND: ${GATEWAY_RATE_LIMIT_PER_SECOND:-10}
+      GATEWAY_RATE_LIMIT_BURST: ${GATEWAY_RATE_LIMIT_BURST:-20}
     ports:
       - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
     depends_on:
-      - catalog-service
-      - order-service
-      - user-service
-      - payment-service
-      - shipping-service
+      redis: { condition: service_healthy }
+      catalog-service: { condition: service_started }
+      order-service: { condition: service_started }
+      user-service: { condition: service_started }
+      payment-service: { condition: service_started }
+      shipping-service: { condition: service_started }
+
+  # ---------------------------------------------------------------- frontend
+  # SPA Angular del progetto e-commerce-FE, nella cartella accanto a questa.
+  frontend:
+    <<: *service-defaults
+    build: ../e-commerce-FE
+    environment:
+      # Indirizzi raggiunti dal browser, quindi quelli pubblicati su localhost e non i nomi interni di Docker.
+      API_URL: http://localhost:${GATEWAY_HOST_PORT:-8080}/api/v1
+      KEYCLOAK_URL: http://localhost:${KEYCLOAK_HOST_PORT:-9000}
+    ports:
+      # La porta deve essere ammessa sia da CORS_ALLOWED_ORIGINS sia dai redirect URI del client Keycloak "ecommerce-web".
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:8080"
+    depends_on:
+      keycloak: { condition: service_healthy }
+      gateway-service: { condition: service_started }
 
 networks:
   ecommerce:

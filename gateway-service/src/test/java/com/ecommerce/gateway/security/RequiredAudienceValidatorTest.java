@@ -35,4 +35,16 @@ class RequiredAudienceValidatorTest {
 
         assertThat(new RequiredAudienceValidator("order-service").validate(jwt).hasErrors()).isTrue();
     }
+
+    @Test
+    void rejectsTokenWithoutAudienceClaimInsteadOfFailing() {
+        Jwt jwt = Jwt.withTokenValue("test")
+                .header("alg", "RS256")
+                .subject("customer-1")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(300))
+                .build();
+
+        assertThat(new RequiredAudienceValidator("order-service").validate(jwt).hasErrors()).isTrue();
+    }
 }

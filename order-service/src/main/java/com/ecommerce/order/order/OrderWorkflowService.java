@@ -43,6 +43,13 @@ public class OrderWorkflowService {
                         order.getId(), order.getStatus());
                 return;
             }
+            // Difesa in profondità: un evento falso o corrotto non deve confermare un ordine pagato solo in parte.
+            if (!paidInFull(order, event)) {
+                log.error("Pagamento {} per l'ordine {} non corrisponde al totale ({} {} invece di {} {}): ordine non confermato.",
+                        event.paymentId(), order.getId(), event.amount(), event.currency(),
+                        order.getSubtotal(), OrderEventPublisher.CURRENCY);
+                return;
+            }
             order.advanceTo(OrderStatus.CONFIRMED, now());
             orderEventPublisher.orderConfirmed(orderRepository.save(order));
             log.info("Ordine {} confermato dopo il pagamento {}.", order.getId(), event.paymentId());
@@ -113,6 +120,12 @@ public class OrderWorkflowService {
             log.error("Evento ricevuto per l'ordine {} che non esiste: ignorato.", orderId);
         }
         return order;
+    }
+
+    private static boolean paidInFull(PurchaseOrder order, PaymentCompletedEvent event) {
+        return event.amount() != null
+                && event.amount().compareTo(order.getSubtotal()) == 0
+                && OrderEventPublisher.CURRENCY.equals(event.currency());
     }
 
     private LocalDateTime now() {

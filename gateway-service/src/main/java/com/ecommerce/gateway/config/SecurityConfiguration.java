@@ -2,6 +2,7 @@ package com.ecommerce.gateway.config;
 
 import com.ecommerce.gateway.security.KeycloakJwtAuthenticationConverter;
 import com.ecommerce.gateway.security.PathBasedAuthenticationManagerResolver;
+import com.ecommerce.gateway.security.RateLimitKeyResolver;
 import com.ecommerce.gateway.security.RequiredAudienceValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -40,6 +41,12 @@ public class SecurityConfiguration {
     @Bean
     KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter() {
         return new KeycloakJwtAuthenticationConverter();
+    }
+
+    /** Usato dal filtro RequestRateLimiter (vedi application.yaml). */
+    @Bean
+    RateLimitKeyResolver rateLimitKeyResolver() {
+        return new RateLimitKeyResolver();
     }
 
     @Bean

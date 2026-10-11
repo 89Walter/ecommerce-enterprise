@@ -15,7 +15,8 @@ public final class RequiredAudienceValidator implements OAuth2TokenValidator<Jwt
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt jwt) {
-        if (jwt.getAudience().contains(requiredAudience)) {
+        // Un token senza claim "aud" va respinto con 401, non deve far fallire la richiesta con un 500.
+        if (jwt.getAudience() != null && jwt.getAudience().contains(requiredAudience)) {
             return OAuth2TokenValidatorResult.success();
         }
         return OAuth2TokenValidatorResult.failure(

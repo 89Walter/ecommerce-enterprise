@@ -50,11 +50,62 @@ upsert_user() { # username, password, nome, cognome, ruolo extra (opzionale)
     else
         echo "L'utente $username esiste già: password riallineata al .env."
     fi
-    api -X PUT "$REALM_URL/users/$id/reset-password" -d "{\"type\":\"password\",\"value\":\"$password\",\"temporary\":false}"
+    api -X PUT "$REALM_URL/users/$id/reset-password" -d "{\"type\":\"password\",\"value\":\"$password\",\"temporary\":false}" \
+        || { echo "Password di $username rifiutata: deve rispettare la password policy del realm (almeno 12 caratteri, diversa da username ed email)." >&2; exit 1; }
     if [ -n "$role" ]; then
         api -X POST "$REALM_URL/users/$id/role-mappings/realm" -d "[$(api "$REALM_URL/roles/$role")]"
     fi
 }
+
+# Il realm viene importato solo al primo avvio di Keycloak: riapplica le impostazioni di sicurezza
+# (password policy, blocco dei tentativi, durata dei token...) anche a un realm creato in precedenza.
+REALM_SECURITY_SETTINGS=$(perl -MJSON::PP -e '
+    my $realm = decode_json(do { local $/; <STDIN> });
+    my @keys = qw(sslRequired duplicateEmailsAllowed passwordPolicy bruteForceProtected permanentLockout failureFactor
+                  waitIncrementSeconds maxFailureWaitSeconds maxDeltaTimeSeconds quickLoginCheckMilliSeconds
+                  minimumQuickLoginWaitSeconds accessTokenLifespan ssoSessionIdleTimeout ssoSessionMaxLifespan
+                  revokeRefreshToken refreshTokenMaxReuse);
+    print encode_json({ map { exists $realm->{$_} ? ($_ => $realm->{$_}) : () } @keys });
+' < "$ROOT_DIR/infra/keycloak/ecommerce-realm.json")
+api -X PUT "$REALM_URL" -d "$REALM_SECURITY_SETTINGS"
+echo "Impostazioni di sicurezza del realm riallineate."
+
+# I mapper di audience usano "included.custom.audience": "included.client.audience" punta a un client che
+# non esiste (i servizi non sono client Keycloak) e da Keycloak 26.4 viene ignorato, lasciando i token senza "aud".
+for service in catalog order user payment shipping; do
+    scope_id=$(api "$REALM_URL/client-scopes" | perl -MJSON::PP -e '
+        print map { $_->{name} eq $ARGV[0] ? $_->{id} : () } @{decode_json(do { local $/; <STDIN> })}' "$service-audience")
+    [ -n "$scope_id" ] || continue
+    mapper=$(api "$REALM_URL/client-scopes/$scope_id/protocol-mappers/models" | perl -MJSON::PP -e '
+        my ($m) = grep { $_->{protocolMapper} eq "oidc-audience-mapper" } @{decode_json(do { local $/; <STDIN> })};
+        exit unless $m;
+        $m->{config} = { "included.custom.audience" => "$ARGV[0]-service", "id.token.claim" => "false", "access.token.claim" => "true" };
+        print encode_json($m)' "$service")
+    [ -n "$mapper" ] || continue
+    mapper_id=$(printf '%s' "$mapper" | json_field id)
+    api -X PUT "$REALM_URL/client-scopes/$scope_id/protocol-mappers/models/$mapper_id" -d "$mapper"
+done
+echo "Mapper di audience riallineati."
+
+# Client con password grant, comodo per Postman e curl. Esiste SOLO negli ambienti creati da questo script:
+# non è nel realm importato, così in produzione non c'è un endpoint per provare password senza la pagina di login.
+if [ -z "$(api "$REALM_URL/clients?clientId=catalog-postman" | json_field id)" ]; then
+    api -X POST "$REALM_URL/clients" -d '{
+        "clientId": "catalog-postman",
+        "name": "E-commerce API local Postman client",
+        "description": "Password grant for local testing only. Never use it in production or in a frontend.",
+        "enabled": true,
+        "protocol": "openid-connect",
+        "publicClient": true,
+        "standardFlowEnabled": false,
+        "implicitFlowEnabled": false,
+        "directAccessGrantsEnabled": true,
+        "serviceAccountsEnabled": false,
+        "defaultClientScopes": ["basic", "roles", "catalog-audience", "order-audience", "user-audience",
+                                "payment-audience", "shipping-audience", "profile", "email"]
+    }'
+    echo "Creato il client di sviluppo catalog-postman."
+fi
 
 upsert_user "$(env_value DEV_ADMIN_USERNAME)" "$(env_value DEV_ADMIN_PASSWORD)" "Admin" "E-commerce" ADMIN
 upsert_user "$(env_value DEV_CUSTOMER_USERNAME)" "$(env_value DEV_CUSTOMER_PASSWORD)" "Cliente" "Prova"

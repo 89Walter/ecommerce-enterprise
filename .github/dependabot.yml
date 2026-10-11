@@ -1,0 +1,33 @@
+# Aggiornamenti automatici delle dipendenze: Dependabot apre una pull request per ogni versione nuova
+# e segnala subito quelle con vulnerabilità note (CVE).
+version: 2
+updates:
+  - package-ecosystem: maven
+    directories:
+      - "/catalog-service"
+      - "/order-service"
+      - "/user-service"
+      - "/payment-service"
+      - "/shipping-service"
+      - "/gateway-service"
+    schedule:
+      interval: weekly
+    groups:
+      spring:
+        patterns: ["org.springframework*"]
+
+  - package-ecosystem: docker
+    directories:
+      - "/catalog-service"
+      - "/order-service"
+      - "/user-service"
+      - "/payment-service"
+      - "/shipping-service"
+      - "/gateway-service"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly

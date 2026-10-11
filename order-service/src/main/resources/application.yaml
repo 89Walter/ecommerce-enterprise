@@ -37,7 +37,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
         # Carica le righe di più ordini con una sola query (evita il problema N+1 nelle liste).
         default_batch_fetch_size: 50
 
@@ -49,8 +48,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${ORDER_RABBITMQ_USERNAME:order-service}
+    password: ${ORDER_RABBITMQ_PASSWORD:}
     publisher-confirm-type: correlated
     publisher-returns: true
     template:
@@ -89,3 +88,10 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Documentazione OpenAPI e Swagger UI: in produzione impostare API_DOCS_ENABLED=false.
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}

@@ -106,7 +106,7 @@ mvn -f order-service/pom.xml spring-boot:run
 
 ### 5. Ottieni un token
 
-Usa le credenziali `DEV_ADMIN_*` o `DEV_CUSTOMER_*` del `.env`, con il client di sviluppo `catalog-postman`:
+Usa le credenziali `DEV_ADMIN_*` o `DEV_CUSTOMER_*` del `.env`, con il client di sviluppo `catalog-postman` (creato da `create-dev-users.sh`, non presente in produzione):
 
 ```bash
 curl.exe -X POST http://localhost:9000/realms/ecommerce/protocol/openid-connect/token -d grant_type=password -d client_id=catalog-postman -d scope=openid -d username=admin -d password=PASSWORD
@@ -130,7 +130,7 @@ docker compose down -v
 
 ### In alternativa: tutto in Docker
 
-Il profilo `apps` compila e avvia in container anche i 6 microservizi. È utile per provare il sistema completo senza IntelliJ; in quel caso non avviarli anche da IntelliJ, perché userebbero le stesse porte.
+Il profilo `apps` compila e avvia in container anche i 6 microservizi e il frontend Angular (`http://localhost:3000`), che viene costruito dalla cartella `../e-commerce-FE`. È utile per provare il sistema completo senza IntelliJ; in quel caso non avviarli anche da IntelliJ o con `npm start`, perché userebbero le stesse porte.
 
 ```bash
 docker compose --profile apps up -d --build
@@ -159,13 +159,23 @@ Ogni servizio pubblica la propria Swagger UI, ad esempio `http://localhost:8080/
 
 ## Frontend
 
-La SPA Angular (catalogo, carrello, ordini, profilo e back-office ADMIN) è un progetto separato, nella cartella `e-commerce-FE` accanto a questa. Usa il login Keycloak tramite il client `ecommerce-web`:
+La SPA Angular (catalogo, carrello, ordini, profilo e back-office ADMIN) è un progetto separato, nella cartella `e-commerce-FE` accanto a questa ([89Walter/ecommerce-enterprise-FE](https://github.com/89Walter/ecommerce-enterprise-FE)). Usa il login Keycloak tramite il client `ecommerce-web`. Due modi per avviarla, entrambi su `http://localhost:3000`:
 
-```bash
-cd ../e-commerce-FE && npm install && npm start
-```
+- **in Docker**, insieme al back-end: è il servizio `frontend` del profilo `apps`. Si può anche ricostruire e avviare da solo, se gateway e Keycloak sono già attivi:
 
-Poi apri `http://localhost:3000`. Dettagli nel README di quel progetto.
+  ```bash
+  docker compose --profile apps up -d --build --no-deps frontend
+  ```
+
+  Il container riceve gli indirizzi pubblici di gateway e Keycloak da `GATEWAY_HOST_PORT` e `KEYCLOAK_HOST_PORT`, quindi segue il `.env` senza essere ricompilato. `FRONTEND_HOST_PORT` deve restare tra le origini di `CORS_ALLOWED_ORIGINS` e i redirect URI del client `ecommerce-web`.
+
+- **in sviluppo**, con ricaricamento automatico a ogni modifica:
+
+  ```bash
+  cd ../e-commerce-FE && npm install && npm start
+  ```
+
+Dettagli nel README di quel progetto.
 
 ## Strumenti di sviluppo
 
@@ -213,3 +223,16 @@ Questa è una base locale completa, non un'installazione di produzione. Servireb
 - osservabilità centralizzata (tracing, log aggregati);
 - rate limiting;
 - backup.
+
+## Sicurezza
+
+Oltre a JWT validati (firma RS256, issuer e audience) sia dal gateway sia da ogni servizio:
+
+- **RabbitMQ**: ogni servizio ha il proprio utente (`ORDER_/PAYMENT_/SHIPPING_RABBITMQ_PASSWORD`), creato da `infra/rabbitmq/setup-service-users.sh` tramite il container `rabbitmq-setup`. Può pubblicare solo le proprie routing key (`order.*`, `payment.*`, `shipping.*`) e non può scrivere direttamente nelle code: chi ruba le credenziali dell'order-service non può pubblicare un `payment.completed` falso. In più l'order-service conferma un ordine solo se importo e valuta del pagamento coincidono con il totale.
+- **Rate limiting** nel gateway, su Redis: `GATEWAY_RATE_LIMIT_PER_SECOND` richieste al secondo (picco `GATEWAY_RATE_LIMIT_BURST`) per utente, o per IP se anonimo. Oltre il limite risponde `429`.
+- **Swagger/OpenAPI** disattivabile con `API_DOCS_ENABLED=false`, da usare in produzione.
+- **Keycloak**: password policy, protezione brute force e rotazione dei refresh token (vedi [docs/keycloak.md](docs/keycloak.md)).
+- **Frontend**: nginx invia Content-Security-Policy, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`; HSTS con `HSTS_ENABLED=true` quando è servito in HTTPS.
+- **Dipendenze**: Dependabot (`.github/dependabot.yml`) propone gli aggiornamenti di Maven e delle immagini Docker.
+
+Prima di andare in produzione restano da fare: Keycloak in modalità `start` con HTTPS e un database dedicato, TLS davanti a gateway e frontend, password vere al posto di quelle di `.env.example`.

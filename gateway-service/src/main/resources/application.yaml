@@ -12,6 +12,13 @@ spring:
   application:
     name: gateway-service
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 500ms
+
   security:
     oauth2:
       resourceserver:
@@ -30,6 +37,14 @@ spring:
             - name: RequestSize
               args:
                 maxSize: 2MB
+            # Token bucket su Redis per utente (o per IP se anonimo): oltre il limite risponde 429.
+            # Se Redis non risponde le richieste passano comunque, per non fermare il negozio.
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@rateLimitKeyResolver}"
+                redis-rate-limiter.replenishRate: ${GATEWAY_RATE_LIMIT_PER_SECOND:10}
+                redis-rate-limiter.burstCapacity: ${GATEWAY_RATE_LIMIT_BURST:20}
+                redis-rate-limiter.requestedTokens: 1
             - name: Retry
               args:
                 retries: 1
@@ -123,6 +138,10 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  # Redis serve solo al rate limiting, che senza Redis lascia passare le richieste: non deve rendere il gateway DOWN.
+  health:
+    redis:
+      enabled: false
   endpoint:
     health:
       show-details: never

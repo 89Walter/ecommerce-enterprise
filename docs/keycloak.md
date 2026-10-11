@@ -13,7 +13,8 @@ Il realm `ecommerce` viene importato all'avvio da [`infra/keycloak/ecommerce-rea
 
 - **Ruoli**: `USER` (assegnato in automatico a ogni nuovo utente) e `ADMIN` (back-office: prodotti, liste admin, avanzamento spedizioni).
 - **Client scope di audience**: `catalog-audience`, `order-audience`, `user-audience`, `payment-audience`, `shipping-audience`. Ognuno aggiunge al claim `aud` del token il nome del servizio corrispondente, ad esempio `order-service`. Ogni servizio accetta solo i token che contengono la propria audience.
-- **Client `catalog-postman`**: pubblico, con grant *password*. Serve **solo per le prove locali** con Postman o curl.
+- **Sicurezza**: password di almeno 12 caratteri (diversa da username ed email), blocco temporaneo dopo 5 tentativi falliti, access token di 5 minuti e refresh token monouso (rotazione). `create-dev-users.sh` riapplica queste impostazioni anche a un realm importato in precedenza.
+- **Client `catalog-postman`**: pubblico, con grant *password*, per le prove locali con Postman o curl. **Non è nel realm importato**: lo crea solo `infra/keycloak/create-dev-users.sh`, così in produzione non esiste un endpoint che accetta password senza passare dalla pagina di login.
 - **Client `ecommerce-web`**: pubblico, con *Authorization Code + PKCE (S256)* e redirect verso `localhost:3000` e `localhost:5173`. È il client da usare per il futuro frontend web o mobile.
 
 ## Utenti di sviluppo

@@ -60,6 +60,30 @@ class OrderWorkflowServiceTest {
     }
 
     @Test
+    void doesNotConfirmOrderWhenPaidAmountDoesNotMatchTotal() {
+        PurchaseOrder order = givenOrder();
+
+        workflow.onPaymentCompleted(
+                new PaymentCompletedEvent("evt-1", INSTANT, 12L, 5L, new BigDecimal("0.01"), "EUR", "SIM-1")
+        );
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PLACED);
+        verifyNoInteractions(orderEventPublisher);
+    }
+
+    @Test
+    void doesNotConfirmOrderWhenPaymentCurrencyDiffers() {
+        PurchaseOrder order = givenOrder();
+
+        workflow.onPaymentCompleted(
+                new PaymentCompletedEvent("evt-1", INSTANT, 12L, 5L, new BigDecimal("23.40"), "USD", "SIM-1")
+        );
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PLACED);
+        verifyNoInteractions(orderEventPublisher);
+    }
+
+    @Test
     void cancelsPlacedOrderWhenPaymentFails() {
         PurchaseOrder order = givenOrder();
 

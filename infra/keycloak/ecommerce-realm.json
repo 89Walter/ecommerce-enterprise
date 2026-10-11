@@ -1,9 +1,24 @@
 {
   "realm": "ecommerce",
   "enabled": true,
+  "sslRequired": "external",
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "passwordPolicy": "length(12) and maxLength(128) and notUsername(undefined) and notEmail(undefined)",
   "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "roles": {
     "realm": [
       {
@@ -204,7 +219,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "catalog-service",
+            "included.custom.audience": "catalog-service",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -226,7 +241,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "order-service",
+            "included.custom.audience": "order-service",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -248,7 +263,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "user-service",
+            "included.custom.audience": "user-service",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -270,7 +285,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "payment-service",
+            "included.custom.audience": "payment-service",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -292,7 +307,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "shipping-service",
+            "included.custom.audience": "shipping-service",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -301,29 +316,6 @@
     }
   ],
   "clients": [
-    {
-      "clientId": "catalog-postman",
-      "name": "E-commerce API local Postman client",
-      "description": "Password grant for local testing only. Never use it in production or in a frontend.",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": true,
-      "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": false,
-      "defaultClientScopes": [
-        "basic",
-        "roles",
-        "catalog-audience",
-        "order-audience",
-        "user-audience",
-        "payment-audience",
-        "shipping-audience",
-        "profile",
-        "email"
-      ]
-    },
     {
       "clientId": "ecommerce-web",
       "name": "E-commerce web and mobile frontend",
