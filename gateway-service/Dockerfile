@@ -6,7 +6,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -q -B -DskipTests dependency:go-offl
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -q -B -DskipTests package     && cp target/gateway-service-*.jar app.jar
 
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=build /workspace/app.jar app.jar
 USER 10001
