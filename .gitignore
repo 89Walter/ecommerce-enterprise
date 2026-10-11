@@ -1,0 +1,27 @@
+# Segreti e configurazione locale
+.env
+*.env
+!.env.example
+
+# Appunti personali
+concetti-catalog-service.txt
+
+# Output di build Maven
+target/
+**/target/
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.settings/
+.classpath
+.project
+.vscode/
+
+# File di sistema e log
+.DS_Store
+Thumbs.db
+*.log

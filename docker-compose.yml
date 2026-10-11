@@ -1,0 +1,205 @@
+# Ambiente locale completo dell'e-commerce.
+#
+#   docker compose up -d                  -> solo infrastruttura (MySQL, Redis, RabbitMQ, Keycloak)
+#   docker compose --profile apps up -d   -> infrastruttura + tutti i microservizi + gateway
+#
+# Le password vengono lette dal file .env nella stessa cartella (vedi .env.example).
+# Tutte le porte sono pubblicate solo su 127.0.0.1.
+
+name: ecommerce
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  profiles: ["apps"]
+  networks: [ecommerce]
+
+x-jwt-environment: &jwt-environment
+  # L'issuer deve coincidere con il claim "iss" dei token, emessi con l'hostname pubblico di Keycloak.
+  JWT_ISSUER_URI: http://localhost:${KEYCLOAK_HOST_PORT:-9000}/realms/ecommerce
+  # Le chiavi pubbliche si scaricano invece dalla rete interna di Docker.
+  JWT_JWK_SET_URI: http://keycloak:8080/realms/ecommerce/protocol/openid-connect/certs
+
+x-rabbit-environment: &rabbit-environment
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Imposta RABBITMQ_USERNAME nel file .env}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Imposta RABBITMQ_PASSWORD nel file .env}
+
+services:
+  # ---------------------------------------------------------------- infrastruttura
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Imposta MYSQL_ROOT_PASSWORD nel file .env}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?Imposta CATALOG_DB_PASSWORD nel file .env}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?Imposta ORDER_DB_PASSWORD nel file .env}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD:?Imposta USER_DB_PASSWORD nel file .env}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?Imposta PAYMENT_DB_PASSWORD nel file .env}
+      SHIPPING_DB_PASSWORD: ${SHIPPING_DB_PASSWORD:?Imposta SHIPPING_DB_PASSWORD nel file .env}
+    ports:
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [ecommerce]
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Imposta REDIS_PASSWORD nel file .env}", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [ecommerce]
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?Imposta RABBITMQ_USERNAME nel file .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Imposta RABBITMQ_PASSWORD nel file .env}
+    ports:
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_UI_HOST_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+    networks: [ecommerce]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    restart: unless-stopped
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname=http://localhost:${KEYCLOAK_HOST_PORT:-9000}
+      - --hostname-backchannel-dynamic=true
+      - --health-enabled=true
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Imposta KEYCLOAK_ADMIN_PASSWORD nel file .env}
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HOST_PORT:-9000}:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [ecommerce]
+
+  # ---------------------------------------------------------------- microservizi
+  catalog-service:
+    <<: *service-defaults
+    build: ./catalog-service
+    environment:
+      <<: *jwt-environment
+      DB_HOST: mysql
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
+  order-service:
+    <<: *service-defaults
+    build: ./order-service
+    environment:
+      <<: [*jwt-environment, *rabbit-environment]
+      DB_HOST: mysql
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      CATALOG_SERVICE_URL: http://catalog-service:8081/api/v1/catalog
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+      catalog-service: { condition: service_started }
+
+  user-service:
+    <<: *service-defaults
+    build: ./user-service
+    environment:
+      <<: *jwt-environment
+      DB_HOST: mysql
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+    depends_on:
+      mysql: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
+  payment-service:
+    <<: *service-defaults
+    build: ./payment-service
+    environment:
+      <<: [*jwt-environment, *rabbit-environment]
+      DB_HOST: mysql
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
+  shipping-service:
+    <<: *service-defaults
+    build: ./shipping-service
+    environment:
+      <<: [*jwt-environment, *rabbit-environment]
+      DB_HOST: mysql
+      SHIPPING_DB_PASSWORD: ${SHIPPING_DB_PASSWORD}
+    depends_on:
+      mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
+  gateway-service:
+    <<: *service-defaults
+    build: ./gateway-service
+    environment:
+      <<: *jwt-environment
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      ORDER_SERVICE_URL: http://order-service:8082
+      USER_SERVICE_URL: http://user-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      SHIPPING_SERVICE_URL: http://shipping-service:8085
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    ports:
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
+    depends_on:
+      - catalog-service
+      - order-service
+      - user-service
+      - payment-service
+      - shipping-service
+
+networks:
+  ecommerce:
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+  keycloak_data:

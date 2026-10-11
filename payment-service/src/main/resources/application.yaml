@@ -1,0 +1,89 @@
+server:
+  port: ${PORT:8084}
+  shutdown: graceful
+  tomcat:
+    # Niente redirect 302 da "/context-path" a "/context-path/": dietro al gateway punterebbe a un host interno.
+    redirect-context-root: false
+  servlet:
+    context-path: ${CONTEXT_PATH:/api/v1/payments}
+
+spring:
+  config:
+    # Il .env della root del progetto (../.env) viene importato per ultimo e quindi prevale.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  application:
+    name: payment-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs}
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${PAYMENT_DB_NAME:payment_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${PAYMENT_DB_USERNAME:payment_app}
+    password: ${PAYMENT_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        # Dopo i retry il messaggio viene rifiutato e finisce nella dead-letter queue.
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 10s
+
+messaging:
+  outbox:
+    poll-interval: ${OUTBOX_POLL_INTERVAL:1s}
+    retention: 7d
+
+payment:
+  simulation:
+    # Il gateway simulato rifiuta gli ordini sopra questa soglia: utile per provare il percorso di errore.
+    max-approved-amount: ${PAYMENT_MAX_APPROVED_AMOUNT:5000}
+
+security:
+  jwt:
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000/realms/ecommerce}
+    audience: ${JWT_AUDIENCE:payment-service}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always

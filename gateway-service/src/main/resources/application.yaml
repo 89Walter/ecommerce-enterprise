@@ -1,0 +1,142 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+spring:
+  config:
+    # Il .env della root del progetto (../.env) viene importato per ultimo e quindi prevale.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  application:
+    name: gateway-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs}
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:2000}
+            response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:5s}
+          # Filtri applicati a tutte le rotte; il CORS è configurato in CorsConfiguration.
+          default-filters:
+            - name: RequestSize
+              args:
+                maxSize: 2MB
+            - name: Retry
+              args:
+                retries: 1
+                methods:
+                  - GET
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+          routes:
+            - id: catalog-service
+              uri: ${CATALOG_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/catalog/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: catalogService
+                    fallbackUri: forward:/fallback/catalog
+
+            - id: order-service
+              uri: ${ORDER_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/orders,/api/v1/orders/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: orderService
+                    fallbackUri: forward:/fallback/orders
+
+            - id: user-service
+              uri: ${USER_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/users/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: userService
+                    fallbackUri: forward:/fallback/users
+
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/payments/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: paymentService
+                    fallbackUri: forward:/fallback/payments
+
+            - id: shipping-service
+              uri: ${SHIPPING_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/shipments/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: shippingService
+                    fallbackUri: forward:/fallback/shipments
+
+security:
+  jwt:
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000/realms/ecommerce}
+    catalog-audience: ${CATALOG_JWT_AUDIENCE:catalog-service}
+    order-audience: ${ORDER_JWT_AUDIENCE:order-service}
+    user-audience: ${USER_JWT_AUDIENCE:user-service}
+    payment-audience: ${PAYMENT_JWT_AUDIENCE:payment-service}
+    shipping-audience: ${SHIPPING_JWT_AUDIENCE:shipping-service}
+
+gateway:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  timelimiter:
+    configs:
+      default:
+        # Leggermente oltre il response-timeout del client HTTP, così scatta prima quest'ultimo.
+        timeout-duration: 6s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Reactive API Gateway for ecommerce microservices
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

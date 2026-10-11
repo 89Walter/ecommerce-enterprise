@@ -1,0 +1,9 @@
+package com.ecommerce.order.messaging.event;
+
+public record ShippingAddressPayload(
+        String recipientName,
+        String addressLine,
+        String city,
+        String postalCode,
+        String countryCode
+) {}

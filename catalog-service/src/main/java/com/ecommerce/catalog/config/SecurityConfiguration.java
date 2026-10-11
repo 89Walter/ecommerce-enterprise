@@ -40,7 +40,7 @@ public class SecurityConfiguration {
                 .jwsAlgorithm(SignatureAlgorithm.RS256)
                 .build();
         OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuerUri);
-        OAuth2TokenValidator<Jwt> audienceValidator = jwt -> Objects.requireNonNull(jwt.getAudience()).contains(audience)
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt -> jwt.getAudience() != null && jwt.getAudience().contains(audience)
                 ? OAuth2TokenValidatorResult.success()
                 : OAuth2TokenValidatorResult.failure(
                         new OAuth2Error("invalid_token", "Required audience is missing.", null)

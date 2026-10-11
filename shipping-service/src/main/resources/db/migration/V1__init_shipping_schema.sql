@@ -1,0 +1,23 @@
+CREATE TABLE shipments (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    customer_id VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    carrier VARCHAR(64),
+    tracking_code VARCHAR(64),
+    recipient_name VARCHAR(120),
+    address_line VARCHAR(255),
+    city VARCHAR(120),
+    postal_code VARCHAR(20),
+    country_code VARCHAR(2),
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    shipped_at DATETIME(6),
+    delivered_at DATETIME(6),
+    cancelled_at DATETIME(6),
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_shipments_order_id UNIQUE (order_id),
+    CONSTRAINT uk_shipments_tracking_code UNIQUE (tracking_code),
+    INDEX idx_shipments_status_created (status, created_at)
+);

@@ -53,7 +53,7 @@ class ProductControllerTest {
                         .build()
         );
 
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -66,7 +66,7 @@ class ProductControllerTest {
 
     @Test
     void rejectsInvalidProductInput() throws Exception {
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -77,7 +77,7 @@ class ProductControllerTest {
 
     @Test
     void rejectsProductInputWhenRequiredFieldsAreMissing() throws Exception {
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -91,7 +91,7 @@ class ProductControllerTest {
     @Test
     void rejectsZeroOrNegativeProductPrice() throws Exception {
         for (String price : List.of("0", "-1")) {
-            mockMvc.perform(post("/products/insertProduct")
+            mockMvc.perform(post("/products")
                             .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
@@ -147,7 +147,7 @@ class ProductControllerTest {
 
     @Test
     void rejectsProductCreationWithoutAdminRole() throws Exception {
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -158,7 +158,7 @@ class ProductControllerTest {
 
     @Test
     void rejectsProductCreationWithoutAuthentication() throws Exception {
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"Keyboard","description":"Mechanical keyboard","price":49.90}

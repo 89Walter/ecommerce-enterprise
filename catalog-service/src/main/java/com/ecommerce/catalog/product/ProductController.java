@@ -51,7 +51,7 @@ public class ProductController {
             @ApiResponse(responseCode = "401", description = "Token mancante o non valido."),
             @ApiResponse(responseCode = "403", description = "Token valido, ma senza ruolo ADMIN.")
     })
-    @PostMapping("/insertProduct")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ProductResponse createProduct(@Valid @RequestBody ProductRequest request) {
         return productService.create(request);

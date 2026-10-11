@@ -89,7 +89,7 @@ class ConfigurationTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/unmatched"))
                 .andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/products/insertProduct"))
+        mockMvc.perform(post("/products"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -100,10 +100,10 @@ class ConfigurationTest {
 
         mockMvc.perform(get("/products/1"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/products/insertProduct")
+        mockMvc.perform(post("/products")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isBadRequest());
     }

@@ -1,9 +1,19 @@
 server:
   port: ${PORT:8081}
+  shutdown: graceful
+  tomcat:
+    # Niente redirect 302 da "/context-path" a "/context-path/": dietro al gateway punterebbe a un host interno.
+    redirect-context-root: false
   servlet:
     context-path: ${CONTEXT_PATH:/api/v1/catalog}
 
 spring:
+  config:
+    # Il .env della root del progetto (../.env) viene importato per ultimo e quindi prevale.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
   application:
     name: catalog-service
   security:
@@ -13,13 +23,14 @@ spring:
           jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs}
 
   datasource:
-    # URL, Username e Password NON hanno valori di fallback predefiniti per le credenziali
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:catalog_service_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    # La password non ha un valore di fallback: va impostata nel file .env.
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${CATALOG_DB_NAME:catalog_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${CATALOG_DB_USERNAME:catalog_app}
+    password: ${CATALOG_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: ${SHOW_SQL:false}
@@ -32,13 +43,20 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
+
+  cache:
+    type: redis
 
   flyway:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+
+catalog:
+  cache:
+    product-ttl: ${CATALOG_PRODUCT_CACHE_TTL:10m}
 
 security:
   jwt:
