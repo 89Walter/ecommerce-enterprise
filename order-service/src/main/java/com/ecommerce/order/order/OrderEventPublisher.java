@@ -31,6 +31,8 @@ public class OrderEventPublisher {
                 Instant.now(clock),
                 order.getId(),
                 order.getCustomerId(),
+                order.getCustomerEmail(),
+                order.getCustomerName(),
                 order.getSubtotal(),
                 CURRENCY,
                 lines(order)
@@ -44,6 +46,8 @@ public class OrderEventPublisher {
                 Instant.now(clock),
                 order.getId(),
                 order.getCustomerId(),
+                order.getCustomerEmail(),
+                order.getCustomerName(),
                 new ShippingAddressPayload(
                         address.getRecipientName(),
                         address.getAddressLine(),
@@ -61,6 +65,8 @@ public class OrderEventPublisher {
                 Instant.now(clock),
                 order.getId(),
                 order.getCustomerId(),
+                order.getCustomerEmail(),
+                order.getCustomerName(),
                 order.getCancellationReason()
         ));
     }

@@ -8,6 +8,12 @@ import org.springframework.web.server.ServerWebExchange;
 
 import java.time.Instant;
 
+/**
+ * Risposte di riserva del gateway, <b>sincrone</b> e interne: non si chiamano dall'esterno (le richieste a
+ * {@code /fallback/**} da fuori sono negate). Il filtro CircuitBreaker ci inoltra la richiesta
+ * ({@code forward:/fallback/...}) quando il servizio di destinazione non risponde in tempo o il circuito è
+ * aperto: il client riceve subito un 503 in JSON invece di attendere un servizio guasto.
+ */
 @RestController
 @RequestMapping("/fallback")
 public class ServiceUnavailableController {
@@ -35,6 +41,11 @@ public class ServiceUnavailableController {
     @RequestMapping("/shipments")
     public ResponseEntity<GatewayErrorResponse> shipmentsUnavailable(ServerWebExchange exchange) {
         return unavailable("shipping-service", exchange);
+    }
+
+    @RequestMapping("/assistant")
+    public ResponseEntity<GatewayErrorResponse> assistantUnavailable(ServerWebExchange exchange) {
+        return unavailable("assistant-service", exchange);
     }
 
     private ResponseEntity<GatewayErrorResponse> unavailable(

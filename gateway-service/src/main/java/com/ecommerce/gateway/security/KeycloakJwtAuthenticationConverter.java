@@ -1,5 +1,6 @@
 package com.ecommerce.gateway.security;
 
+import org.jspecify.annotations.NonNull;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -19,12 +20,9 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Mono<A
     private final JwtGrantedAuthoritiesConverter scopeAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
 
     @Override
-    public Mono<AbstractAuthenticationToken> convert(Jwt jwt) {
-        Collection<GrantedAuthority> authorities = new ArrayList<>();
+    public Mono<AbstractAuthenticationToken> convert(@NonNull Jwt jwt) {
         Collection<GrantedAuthority> scopeAuthorities = scopeAuthoritiesConverter.convert(jwt);
-        if (scopeAuthorities != null) {
-            authorities.addAll(scopeAuthorities);
-        }
+        Collection<GrantedAuthority> authorities = new ArrayList<>(scopeAuthorities);
 
         List<String> roles = new ArrayList<>();
         List<String> directRoles = jwt.getClaimAsStringList("roles");

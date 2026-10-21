@@ -22,6 +22,8 @@
         <module>user-service</module>
         <module>payment-service</module>
         <module>shipping-service</module>
+        <module>assistant-service</module>
+        <module>notification-service</module>
         <module>gateway-service</module>
     </modules>
 </project>

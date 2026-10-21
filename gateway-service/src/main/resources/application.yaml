@@ -55,6 +55,45 @@ spring:
                   - SERVICE_UNAVAILABLE
                   - GATEWAY_TIMEOUT
           routes:
+            # Rotte AI: una risposta di Claude può richiedere decine di secondi, quindi hanno timeout più lunghi
+            # del resto (5s) e un limite di richieste più basso, perché ogni chiamata ha un costo.
+            - id: catalog-ai
+              uri: ${CATALOG_SERVICE_URL:http://localhost:8081}
+              order: -1
+              predicates:
+                - Path=/api/v1/catalog/products/*/description-suggestion
+              metadata:
+                response-timeout: 70000
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@aiRateLimitKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${GATEWAY_AI_RATE_LIMIT_PER_SECOND:1}
+                    redis-rate-limiter.burstCapacity: ${GATEWAY_AI_RATE_LIMIT_BURST:5}
+                    redis-rate-limiter.requestedTokens: 1
+                - name: CircuitBreaker
+                  args:
+                    name: catalogAiService
+                    fallbackUri: forward:/fallback/catalog
+
+            - id: assistant-service
+              uri: ${ASSISTANT_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/assistant/**
+              metadata:
+                response-timeout: 140000
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@aiRateLimitKeyResolver}"
+                    redis-rate-limiter.replenishRate: ${GATEWAY_AI_RATE_LIMIT_PER_SECOND:1}
+                    redis-rate-limiter.burstCapacity: ${GATEWAY_AI_RATE_LIMIT_BURST:5}
+                    redis-rate-limiter.requestedTokens: 1
+                - name: CircuitBreaker
+                  args:
+                    name: assistantService
+                    fallbackUri: forward:/fallback/assistant
+
             - id: catalog-service
               uri: ${CATALOG_SERVICE_URL:http://localhost:8081}
               predicates:
@@ -113,6 +152,7 @@ security:
     user-audience: ${USER_JWT_AUDIENCE:user-service}
     payment-audience: ${PAYMENT_JWT_AUDIENCE:payment-service}
     shipping-audience: ${SHIPPING_JWT_AUDIENCE:shipping-service}
+    assistant-audience: ${ASSISTANT_JWT_AUDIENCE:assistant-service}
 
 gateway:
   cors:
@@ -132,6 +172,12 @@ resilience4j:
       default:
         # Leggermente oltre il response-timeout del client HTTP, così scatta prima quest'ultimo.
         timeout-duration: 6s
+    instances:
+      # Come sopra, per le rotte AI (response-timeout di 70s e 140s nei metadata delle rotte).
+      catalogAiService:
+        timeout-duration: 75s
+      assistantService:
+        timeout-duration: 145s
 
 management:
   endpoints:

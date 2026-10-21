@@ -27,6 +27,14 @@ bash infra/keycloak/create-dev-users.sh
 
 Lo script crea `admin` (ruoli `ADMIN` e `USER`) e `cliente` (solo `USER`). Le password stanno nel `.env` della root (`DEV_ADMIN_*`, `DEV_CUSTOMER_*`) e, se mancano, vengono generate. Puoi rilanciarlo quando vuoi.
 
+Lo script riallinea anche il realm su un Keycloak già avviato, che non rilegge il file JSON. In particolare:
+
+- crea gli scope di audience mancanti;
+- assegna ai client `account` e `account-console` di Keycloak gli scope `basic`, `roles`, `profile` ed `email`. Keycloak crea questi client prima di applicare il file del realm, quindi senza questo passaggio nascono senza scope;
+- garantisce che il ruolo predefinito includa `manage-account` e `view-profile`.
+
+Senza questi ultimi due interventi la pagina **Gestisci account e password** (`/realms/ecommerce/account`) mostra "Something went wrong" (errore 403). Per questo va lanciato **sempre dopo il primo avvio di Keycloak**.
+
 ### Creare altri utenti a mano
 
 1. Avvia l'infrastruttura (`docker compose up -d`) e apri `http://localhost:9000/admin/`.
@@ -74,7 +82,7 @@ docker compose rm -sf keycloak
 ```
 
 ```bash
-docker volume rm ecommerce_keycloak_data
+docker volume rm 
 ```
 
 I token già emessi non cambiano: dopo ogni modifica richiedine uno nuovo.

@@ -6,6 +6,7 @@ import com.ecommerce.order.messaging.EventTopology;
 import com.ecommerce.order.messaging.OutboxEvent;
 import com.ecommerce.order.messaging.OutboxEventRepository;
 import com.ecommerce.order.order.CreateOrderRequest;
+import com.ecommerce.order.order.CustomerContact;
 import com.ecommerce.order.order.OrderItemRequest;
 import com.ecommerce.order.order.OrderResponse;
 import com.ecommerce.order.order.OrderService;
@@ -38,7 +39,7 @@ class OrderServiceApplicationTest {
         given(catalogProductClient.findById(7L))
                 .willReturn(new CatalogProductResponse(7L, "Keyboard", new BigDecimal("23.40")));
 
-        OrderResponse order = orderService.create("customer-1", new CreateOrderRequest(
+        OrderResponse order = orderService.create("customer-1", new CustomerContact("ada@example.test", "Ada Lovelace"), new CreateOrderRequest(
                 List.of(new OrderItemRequest(7L, 2)),
                 new ShippingAddressRequest("Ada Lovelace", "Via Roma 1", "Torino", "10100", "IT")
         ));
@@ -50,7 +51,9 @@ class OrderServiceApplicationTest {
             assertThat(event.getPayload())
                     .contains("\"orderId\":" + order.id())
                     .contains("\"amount\":46.80")
-                    .contains("\"currency\":\"EUR\"");
+                    .contains("\"currency\":\"EUR\"")
+                    .contains("\"customerEmail\":\"ada@example.test\"")
+                    .contains("\"customerName\":\"Ada Lovelace\"");
         });
     }
 }

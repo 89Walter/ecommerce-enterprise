@@ -33,6 +33,8 @@ Backend di un e-commerce in **Java 17 + Spring Boot 4**, diviso in microservizi 
 | `user-service` | 8083 | `/api/v1/users` | Profilo cliente (indirizzo predefinito, telefono) |
 | `payment-service` | 8084 | `/api/v1/payments` | Addebiti e rimborsi (gateway simulato) |
 | `shipping-service` | 8085 | `/api/v1/shipments` | Spedizioni e tracking |
+| `assistant-service` | 8086 | `/api/v1/assistant` | Assistente AI (Claude) per ordini e acquisti |
+| `notification-service` | 8087 | — (solo eventi) | Email al cliente: conferma, spedizione, consegna, annullamento, rimborso |
 
 Ogni servizio ha **il proprio database** (`catalog_db`, `order_db`, …) con un utente MySQL dedicato che vede solo quello: nessun servizio legge le tabelle di un altro.
 
@@ -54,6 +56,19 @@ cliente ── POST /orders ──► order-service ── ORDER_PLACED ──�
 - **Annullamento del cliente** (in `PLACED` o `CONFIRMED`) → `ORDER_CANCELLED` → il pagamento viene rimborsato e la spedizione annullata.
 
 I dettagli (contratti degli eventi, garanzie di consegna, casi limite) sono in [docs/events.md](docs/events.md).
+
+## Agenti AI
+
+Il negozio usa **Claude** in due punti:
+
+- **Assistente clienti** (`assistant-service`): risponde su ordini, pagamenti e spedizioni e consiglia prodotti. Consulta le API con i permessi dell'utente ed è di sola lettura.
+- **Generatore di schede prodotto** (nel `catalog-service`): propone all'ADMIN una nuova descrizione, che va approvata prima di essere salvata.
+
+Per attivarli basta inserire `ANTHROPIC_API_KEY` nel `.env`. Senza chiave il negozio funziona normalmente e queste due funzioni rispondono "non configurato". Configurazione, sicurezza e prossimi agenti sono in [docs/agents.md](docs/agents.md).
+
+## Email
+
+Il `notification-service` scrive al cliente a ogni passaggio importante dell'ordine: conferma, spedizione, consegna, annullamento e rimborso. Keycloak invia le email di "password dimenticata" e di verifica dell'indirizzo. In sviluppo tutte le email finiscono in **Mailpit** (http://localhost:8025), quindi non esce niente verso Internet. Dettagli e configurazione per la produzione in [docs/email.md](docs/email.md).
 
 ## Avvio rapido
 
@@ -77,7 +92,7 @@ Ogni servizio lo legge da solo all'avvio (`spring.config.import`), quindi le Run
 docker compose up -d
 ```
 
-Questo comando avvia MySQL (5 database), Redis, RabbitMQ e Keycloak. Puoi lanciarlo anche da IntelliJ con la Run Configuration **infrastruttura (docker compose up)**.
+Questo comando avvia MySQL (6 database, uno per servizio), Redis, RabbitMQ, Keycloak e Mailpit (la casella email di sviluppo su http://localhost:8025). Puoi lanciarlo anche da IntelliJ con la Run Configuration **infrastruttura (docker compose up)**.
 
 ### 3. Crea gli utenti di sviluppo (la prima volta, o dopo aver azzerato Keycloak)
 
@@ -154,6 +169,8 @@ docker compose --profile apps up -d --build
 | `GET` | `/api/v1/shipments/orders/{orderId}` | proprietario o ADMIN |
 | `GET` | `/api/v1/shipments/admin?status=` | ADMIN |
 | `PATCH` | `/api/v1/shipments/admin/{id}/status` | ADMIN (`SHIPPED`, poi `DELIVERED`) |
+| `POST` | `/api/v1/assistant/chat` | utente (assistente AI) |
+| `POST` | `/api/v1/catalog/products/{id}/description-suggestion` | ADMIN (descrizione proposta da AI) |
 
 Ogni servizio pubblica la propria Swagger UI, ad esempio `http://localhost:8080/api/v1/orders/swagger-ui/index.html`. Il pagamento simulato rifiuta gli ordini sopra `PAYMENT_MAX_APPROVED_AMOUNT` (predefinito 5000 €), così puoi provare anche il percorso di errore.
 
@@ -182,6 +199,7 @@ Dettagli nel README di quel progetto.
 | Cosa | Dove |
 |---|---|
 | Console RabbitMQ (code, DLQ, messaggi) | `http://localhost:15672` (credenziali `RABBITMQ_*`) |
+| Casella email di sviluppo (Mailpit): tutte le email del negozio e di Keycloak | `http://localhost:8025` |
 | Console Keycloak | `http://localhost:9000/admin/` |
 | Health di un servizio | `http://localhost:8082/api/v1/orders/actuator/health` |
 | Metriche Prometheus | `…/actuator/prometheus` di ogni servizio |

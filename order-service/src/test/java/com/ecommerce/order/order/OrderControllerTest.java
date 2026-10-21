@@ -38,10 +38,13 @@ class OrderControllerTest {
 
     @Test
     void createsOrderAtTheContextRootForTheAuthenticatedCustomer() throws Exception {
-        given(orderService.create(eq("customer-1"), any(CreateOrderRequest.class))).willReturn(response());
+        given(orderService.create(eq("customer-1"), eq(new CustomerContact("ada@example.test", "Ada Lovelace")), any(CreateOrderRequest.class))).willReturn(response());
 
         mockMvc.perform(post(CONTEXT_PATH).contextPath(CONTEXT_PATH)
-                        .with(jwt().jwt(token -> token.subject("customer-1")))
+                        .with(jwt().jwt(token -> token.subject("customer-1")
+                                .claim("email", "ada@example.test")
+                                .claim("given_name", "Ada")
+                                .claim("family_name", "Lovelace")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

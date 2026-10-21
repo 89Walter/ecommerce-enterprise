@@ -11,6 +11,8 @@ public record OrderConfirmedEvent(
         Instant occurredAt,
         Long orderId,
         String customerId,
+        String customerEmail,
+        String customerName,
         ShippingAddressPayload shippingAddress,
         List<OrderLinePayload> items
 ) implements IntegrationEvent {}

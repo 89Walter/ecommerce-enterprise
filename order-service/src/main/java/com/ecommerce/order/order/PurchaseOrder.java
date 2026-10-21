@@ -37,6 +37,12 @@ public class PurchaseOrder {
     @Column(name = "customer_id", nullable = false, length = 255)
     private String customerId;
 
+    @Column(name = "customer_email", length = 255)
+    private String customerEmail;
+
+    @Column(name = "customer_name", length = 255)
+    private String customerName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderStatus status;
@@ -105,7 +111,20 @@ public class PurchaseOrder {
             ShippingAddress shippingAddress,
             List<OrderLineSnapshot> lines
     ) {
-        return new PurchaseOrder(customerId, subtotal, shippingAddress, lines);
+        return create(customerId, CustomerContact.UNKNOWN, subtotal, shippingAddress, lines);
+    }
+
+    static PurchaseOrder create(
+            String customerId,
+            CustomerContact contact,
+            BigDecimal subtotal,
+            ShippingAddress shippingAddress,
+            List<OrderLineSnapshot> lines
+    ) {
+        PurchaseOrder order = new PurchaseOrder(customerId, subtotal, shippingAddress, lines);
+        order.customerEmail = contact.email();
+        order.customerName = contact.name();
+        return order;
     }
 
     public void advanceTo(OrderStatus target, LocalDateTime changedAt) {

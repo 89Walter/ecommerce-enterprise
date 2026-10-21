@@ -61,6 +61,7 @@ class OrderServiceTest {
 
         OrderResponse response = orderService.create(
                 " customer-1 ",
+                new CustomerContact("ada@example.test", "Ada Lovelace"),
                 request(List.of(new OrderItemRequest(7L, 2), new OrderItemRequest(7L, 1)))
         );
 
@@ -85,7 +86,7 @@ class OrderServiceTest {
                 new OrderItemRequest(7L, 50)
         ));
 
-        assertThatThrownBy(() -> orderService.create("customer-1", request))
+        assertThatThrownBy(() -> orderService.create("customer-1", CustomerContact.UNKNOWN, request))
                 .isInstanceOf(InvalidOrderException.class)
                 .hasMessage("La quantità massima per prodotto è 99.");
 
@@ -100,6 +101,7 @@ class OrderServiceTest {
 
         assertThatThrownBy(() -> orderService.create(
                 "customer-1",
+                CustomerContact.UNKNOWN,
                 request(List.of(new OrderItemRequest(404L, 1)))
         )).isInstanceOf(CatalogProductNotFoundException.class);
 

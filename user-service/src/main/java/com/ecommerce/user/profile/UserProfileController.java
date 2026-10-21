@@ -21,6 +21,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * API REST dei profili cliente, tutte <b>sincrone</b>. Lo user-service non usa RabbitMQ:
+ * non pubblica né riceve eventi. Login, password e ruoli sono in Keycloak, non qui.
+ */
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Utenti", description = "Profilo del cliente (i dati di accesso restano in Keycloak).")
@@ -29,6 +33,12 @@ public class UserProfileController {
 
     private final UserProfileService userProfileService;
 
+    /**
+     * {@code GET /api/v1/users/me} — il profilo dell'utente autenticato.
+     * <p>
+     * <b>SINCRONA</b>: al primo accesso crea il profilo con email e nome presi dal token; dopo riallinea
+     * l'email se è cambiata in Keycloak. Il checkout lo usa per precompilare l'indirizzo.
+     */
     @Operation(
             summary = "Profilo dell'utente autenticato",
             description = "Al primo accesso il profilo viene creato con email e nome presenti nel token.",
@@ -39,12 +49,22 @@ public class UserProfileController {
         return userProfileService.getOrCreate(jwt);
     }
 
+    /**
+     * {@code PUT /api/v1/users/me} — aggiorna nome, telefono e indirizzo predefinito dell'utente autenticato.
+     * <p>
+     * <b>SINCRONA</b>: salva su MySQL e risponde con il profilo aggiornato. Nessun effetto asincrono.
+     */
     @Operation(summary = "Aggiorna il profilo dell'utente autenticato", security = @SecurityRequirement(name = "bearerAuth"))
     @PutMapping("/me")
     public UserProfileResponse updateMe(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UpdateProfileRequest request) {
         return userProfileService.update(jwt, request);
     }
 
+    /**
+     * {@code GET /api/v1/users/admin?email=} — tutti i profili, con filtro sull'email. Solo ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura.
+     */
     @Operation(summary = "Elenca i profili", description = "Riservato agli amministratori.",
             security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/admin")
@@ -55,6 +75,11 @@ public class UserProfileController {
         return new PagedModel<>(userProfileService.findAll(email, pageable));
     }
 
+    /**
+     * {@code GET /api/v1/users/admin/{id}} — un profilo, dato l'id Keycloak dell'utente. Solo ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura.
+     */
     @Operation(summary = "Recupera un profilo", description = "Riservato agli amministratori.",
             security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/admin/{id}")

@@ -39,6 +39,10 @@ public final class EventTopology {
     public static final String ORDER_SHIPPING_UPDATED_QUEUE = "order-service.shipping-updated";
     public static final String SHIPPING_ORDER_CONFIRMED_QUEUE = "shipping-service.order-confirmed";
     public static final String SHIPPING_ORDER_CANCELLED_QUEUE = "shipping-service.order-cancelled";
+    public static final String NOTIFICATION_ORDER_CONFIRMED_QUEUE = "notification-service.order-confirmed";
+    public static final String NOTIFICATION_ORDER_CANCELLED_QUEUE = "notification-service.order-cancelled";
+    public static final String NOTIFICATION_PAYMENT_REFUNDED_QUEUE = "notification-service.payment-refunded";
+    public static final String NOTIFICATION_SHIPPING_UPDATED_QUEUE = "notification-service.shipping-updated";
 
     /** Chi riceve cosa: una coda per ogni coppia (servizio consumatore, tipo di evento). */
     public static final List<QueueBinding> BINDINGS = List.of(
@@ -49,7 +53,11 @@ public final class EventTopology {
             new QueueBinding(ORDER_PAYMENT_REFUNDED_QUEUE, PAYMENT_REFUNDED),
             new QueueBinding(ORDER_SHIPPING_UPDATED_QUEUE, SHIPPING_UPDATED),
             new QueueBinding(SHIPPING_ORDER_CONFIRMED_QUEUE, ORDER_CONFIRMED),
-            new QueueBinding(SHIPPING_ORDER_CANCELLED_QUEUE, ORDER_CANCELLED)
+            new QueueBinding(SHIPPING_ORDER_CANCELLED_QUEUE, ORDER_CANCELLED),
+            new QueueBinding(NOTIFICATION_ORDER_CONFIRMED_QUEUE, ORDER_CONFIRMED),
+            new QueueBinding(NOTIFICATION_ORDER_CANCELLED_QUEUE, ORDER_CANCELLED),
+            new QueueBinding(NOTIFICATION_PAYMENT_REFUNDED_QUEUE, PAYMENT_REFUNDED),
+            new QueueBinding(NOTIFICATION_SHIPPING_UPDATED_QUEUE, SHIPPING_UPDATED)
     );
 
     private EventTopology() {}

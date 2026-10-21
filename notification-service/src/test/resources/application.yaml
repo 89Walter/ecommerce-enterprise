@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:notifications;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
+
+notification:
+  from-address: noreply@bottega.local
+  from-name: Bottega
+  shop-url: http://localhost:3000

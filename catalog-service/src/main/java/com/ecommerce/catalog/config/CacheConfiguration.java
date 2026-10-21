@@ -34,7 +34,9 @@ public class CacheConfiguration implements CachingConfigurer {
     RedisCacheManagerBuilderCustomizer productCacheCustomizer(
             @Value("${catalog.cache.product-ttl}") Duration productTtl
     ) {
-        return builder -> builder.withCacheConfiguration(
+        // transactionAware: dentro una transazione, @CachePut e @CacheEvict vengono applicati solo dopo il commit.
+        // Se il commit fallisce (rollback), Redis non viene toccato e cache e database restano allineati.
+        return builder -> builder.transactionAware().withCacheConfiguration(
                 PRODUCTS_CACHE,
                 RedisCacheConfiguration.defaultCacheConfig()
                         .prefixCacheNameWith("catalog::")

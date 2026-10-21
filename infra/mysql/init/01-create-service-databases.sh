@@ -26,4 +26,5 @@ create_service_database order_db    order_app    "${ORDER_DB_PASSWORD:-}"
 create_service_database user_db     user_app     "${USER_DB_PASSWORD:-}"
 create_service_database payment_db  payment_app  "${PAYMENT_DB_PASSWORD:-}"
 create_service_database shipping_db shipping_app "${SHIPPING_DB_PASSWORD:-}"
+create_service_database notification_db notification_app "${NOTIFICATION_DB_PASSWORD:-}"
 echo "FLUSH PRIVILEGES;" | run_sql

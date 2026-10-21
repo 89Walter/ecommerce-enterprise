@@ -1,0 +1,77 @@
+server:
+  port: ${PORT:8087}
+  shutdown: graceful
+  servlet:
+    # Il servizio non espone API: la porta serve solo per l'health check (/api/v1/notifications/actuator/health).
+    context-path: ${CONTEXT_PATH:/api/v1/notifications}
+
+spring:
+  config:
+    # Il .env della root del progetto (../.env) viene importato per ultimo e quindi prevale.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${NOTIFICATION_DB_NAME:notification_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${NOTIFICATION_DB_USERNAME:notification_app}
+    password: ${NOTIFICATION_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: ${SHOW_SQL:false}
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${NOTIFICATION_RABBITMQ_USERNAME:notification-service}
+    password: ${NOTIFICATION_RABBITMQ_PASSWORD:}
+    listener:
+      simple:
+        # Dopo i retry il messaggio viene rifiutato e finisce nella dead-letter queue.
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 10s
+
+  # Server SMTP: in sviluppo Mailpit (http://localhost:8025 per leggere le email), in produzione un servizio reale.
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+
+notification:
+  from-address: ${MAIL_FROM_ADDRESS:noreply@bottega.local}
+  from-name: ${MAIL_FROM_NAME:Bottega}
+  # Indirizzo del frontend, per i link "Vedi l'ordine" nelle email.
+  shop-url: ${SHOP_URL:http://localhost:3000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always

@@ -10,5 +10,7 @@ public record OrderCancelledEvent(
         Instant occurredAt,
         Long orderId,
         String customerId,
+        String customerEmail,
+        String customerName,
         String reason
 ) implements IntegrationEvent {}

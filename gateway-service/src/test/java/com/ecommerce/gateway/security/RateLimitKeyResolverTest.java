@@ -26,6 +26,17 @@ class RateLimitKeyResolverTest {
     }
 
     @Test
+    void scopedResolverKeepsSeparateCountersForTheSameUser() {
+        ServerWebExchange exchange = exchangeFrom("203.0.113.7")
+                .mutate()
+                .principal(Mono.just(new TestingAuthenticationToken("user-123", null)))
+                .build();
+
+        assertThat(new RateLimitKeyResolver("ai").resolve(exchange).block()).isEqualTo("ai:user:user-123");
+        assertThat(new RateLimitKeyResolver("ai").resolve(exchangeFrom("203.0.113.7")).block()).isEqualTo("ai:ip:203.0.113.7");
+    }
+
+    @Test
     void usesTheClientIpForAnonymousRequests() {
         assertThat(resolver.resolve(exchangeFrom("203.0.113.7")).block()).isEqualTo("ip:203.0.113.7");
     }

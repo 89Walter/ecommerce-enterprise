@@ -3,7 +3,18 @@
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
+  "resetPasswordAllowed": true,
+  "verifyEmail": true,
   "loginWithEmailAllowed": true,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@bottega.local",
+    "fromDisplayName": "Bottega",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
   "duplicateEmailsAllowed": false,
   "passwordPolicy": "length(12) and maxLength(128) and notUsername(undefined) and notEmail(undefined)",
   "bruteForceProtected": true,
@@ -30,13 +41,29 @@
         "description": "Back-office access: catalog, payments, shipments and users"
       },
       {
+        "name": "offline_access",
+        "description": "${role_offline-access}"
+      },
+      {
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}"
+      },
+      {
         "name": "default-roles-ecommerce",
         "description": "Roles assigned to every new user",
         "composite": true,
         "composites": {
           "realm": [
-            "USER"
-          ]
+            "USER",
+            "offline_access",
+            "uma_authorization"
+          ],
+          "client": {
+            "account": [
+              "manage-account",
+              "view-profile"
+            ]
+          }
         }
       }
     ]
@@ -44,6 +71,12 @@
   "defaultRole": {
     "name": "default-roles-ecommerce"
   },
+  "defaultDefaultClientScopes": [
+    "basic",
+    "roles",
+    "profile",
+    "email"
+  ],
   "clientScopes": [
     {
       "name": "basic",
@@ -82,7 +115,7 @@
     },
     {
       "name": "roles",
-      "description": "Realm roles in realm_access.roles, read by every service",
+      "description": "Realm roles (read by every service), client roles and the matching audiences (used by the Keycloak account console)",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "false",
@@ -99,6 +132,30 @@
             "jsonType.label": "String",
             "multivalued": "true",
             "user.attribute": "foo",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "user.attribute": "foo",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience resolve",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-resolve-mapper",
+          "consentRequired": false,
+          "config": {
             "access.token.claim": "true",
             "introspection.token.claim": "true"
           }
@@ -313,6 +370,28 @@
           }
         }
       ]
+    },
+    {
+      "name": "assistant-audience",
+      "description": "Adds the AI assistant service as an access-token audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "assistant-service audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "assistant-service",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -347,6 +426,7 @@
         "user-audience",
         "payment-audience",
         "shipping-audience",
+        "assistant-audience",
         "profile",
         "email"
       ]

@@ -7,6 +7,7 @@ import com.ecommerce.gateway.security.RequiredAudienceValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -37,16 +38,24 @@ public class SecurityConfiguration {
     static final String USERS = "/api/v1/users";
     static final String PAYMENTS = "/api/v1/payments";
     static final String SHIPMENTS = "/api/v1/shipments";
+    static final String ASSISTANT = "/api/v1/assistant";
 
     @Bean
     KeycloakJwtAuthenticationConverter keycloakJwtAuthenticationConverter() {
         return new KeycloakJwtAuthenticationConverter();
     }
 
-    /** Usato dal filtro RequestRateLimiter (vedi application.yaml). */
+    /** Usato dal filtro RequestRateLimiter (vedi application.yaml). Primary: è anche il resolver predefinito. */
     @Bean
+    @Primary
     RateLimitKeyResolver rateLimitKeyResolver() {
         return new RateLimitKeyResolver();
+    }
+
+    /** Limite aggiuntivo delle rotte AI, con contatori separati da quello generale (chiavi "ai:..."). */
+    @Bean
+    RateLimitKeyResolver aiRateLimitKeyResolver() {
+        return new RateLimitKeyResolver("ai");
     }
 
     @Bean
@@ -58,6 +67,7 @@ public class SecurityConfiguration {
             @Value("${security.jwt.user-audience}") String userAudience,
             @Value("${security.jwt.payment-audience}") String paymentAudience,
             @Value("${security.jwt.shipping-audience}") String shippingAudience,
+            @Value("${security.jwt.assistant-audience}") String assistantAudience,
             KeycloakJwtAuthenticationConverter authenticationConverter
     ) {
         Map<String, String> audiencesByPrefix = new LinkedHashMap<>();
@@ -66,6 +76,7 @@ public class SecurityConfiguration {
         audiencesByPrefix.put(USERS, userAudience);
         audiencesByPrefix.put(PAYMENTS, paymentAudience);
         audiencesByPrefix.put(SHIPMENTS, shippingAudience);
+        audiencesByPrefix.put(ASSISTANT, assistantAudience);
 
         Map<String, JwtReactiveAuthenticationManager> managers = new LinkedHashMap<>();
         audiencesByPrefix.forEach((prefix, audience) -> {
@@ -111,7 +122,8 @@ public class SecurityConfiguration {
                                 "/api/v1/orders", "/api/v1/orders/**",
                                 "/api/v1/users/**",
                                 "/api/v1/payments/**",
-                                "/api/v1/shipments/**"
+                                "/api/v1/shipments/**",
+                                "/api/v1/assistant/**"
                         ).authenticated()
                         .anyExchange().denyAll()
                 )

@@ -12,6 +12,8 @@ public record OrderPlacedEvent(
         Instant occurredAt,
         Long orderId,
         String customerId,
+        String customerEmail,
+        String customerName,
         BigDecimal amount,
         String currency,
         List<OrderLinePayload> items

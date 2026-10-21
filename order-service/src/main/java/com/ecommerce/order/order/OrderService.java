@@ -43,7 +43,7 @@ public class OrderService {
      * dell'ordine e dell'evento ORDER_PLACED nell'outbox.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public OrderResponse create(String customerId, CreateOrderRequest request) {
+    public OrderResponse create(String customerId, CustomerContact contact, CreateOrderRequest request) {
         String normalizedCustomerId = normalizeCustomerId(customerId);
         Map<Long, Integer> quantities = aggregateQuantities(request.items());
         List<OrderLineSnapshot> lines = quantities.entrySet().stream()
@@ -59,6 +59,7 @@ public class OrderService {
 
         PurchaseOrder order = PurchaseOrder.create(
                 normalizedCustomerId,
+                contact == null ? CustomerContact.UNKNOWN : contact,
                 subtotal,
                 toAddress(request.shippingAddress()),
                 lines

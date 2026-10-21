@@ -20,6 +20,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * API REST delle spedizioni, tutte <b>sincrone</b>. Le spedizioni nascono in modo asincrono dall'evento
+ * {@code order.confirmed} (vedi {@link ShipmentEventListeners}); l'avanzamento manuale dell'ADMIN, invece,
+ * è sincrono ma avvisa l'order-service con un evento.
+ */
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Spedizioni", description = "Tracciamento e gestione delle spedizioni.")
@@ -28,6 +33,12 @@ public class ShipmentController {
 
     private final ShipmentService shipmentService;
 
+    /**
+     * {@code GET /api/v1/shipments/orders/{orderId}} — spedizione e tracking di un ordine. Proprietario o ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura. Risponde 404 finché l'ordine non è confermato: la spedizione viene
+     * creata in modo asincrono dall'evento {@code order.confirmed}.
+     */
     @Operation(
             summary = "Spedizione di un ordine",
             description = "Il cliente vede solo le proprie spedizioni, l'ADMIN tutte.",
@@ -38,6 +49,11 @@ public class ShipmentController {
         return shipmentService.findByOrder(orderId, authentication.getName(), isAdmin(authentication));
     }
 
+    /**
+     * {@code GET /api/v1/shipments/admin?status=} — tutte le spedizioni, con filtro opzionale. Solo ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura.
+     */
     @Operation(summary = "Elenca le spedizioni", description = "Riservato agli amministratori.",
             security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/admin")
@@ -49,6 +65,15 @@ public class ShipmentController {
         return new PagedModel<>(shipmentService.findAll(status, pageable));
     }
 
+    /**
+     * {@code PATCH /api/v1/shipments/admin/{id}/status} con body {@code {"status": "SHIPPED"}} oppure
+     * {@code "DELIVERED"} — avanza la spedizione. Solo ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: la spedizione è aggiornata nella risposta (409 se si salta uno stato).
+     * Nella stessa transazione salva l'evento {@code shipping.updated} nell'outbox.
+     * <b>Effetto ASINCRONO</b>: l'order-service porta l'ordine in SHIPPED / DELIVERED e il
+     * notification-service manda l'email "spedito" / "consegnato", qualche istante dopo.
+     */
     @Operation(
             summary = "Avanza lo stato di una spedizione",
             description = "Riservato agli amministratori: CREATED -> SHIPPED -> DELIVERED. Aggiorna anche l'ordine.",

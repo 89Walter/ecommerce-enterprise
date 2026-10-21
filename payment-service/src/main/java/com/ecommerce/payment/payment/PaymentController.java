@@ -17,7 +17,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Sola lettura: i pagamenti nascono e cambiano stato soltanto tramite gli eventi degli ordini. */
+/**
+ * API REST dei pagamenti: solo letture <b>sincrone</b>. I pagamenti nascono e cambiano stato soltanto
+ * tramite le API asincrone di {@link PaymentEventListeners} (eventi degli ordini su RabbitMQ):
+ * non esiste un endpoint HTTP per "pagare".
+ */
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Pagamenti", description = "Consultazione dei pagamenti degli ordini.")
@@ -26,6 +30,12 @@ public class PaymentController {
 
     private final PaymentQueryService paymentQueryService;
 
+    /**
+     * {@code GET /api/v1/payments/orders/{orderId}} — il pagamento di un ordine. Proprietario dell'ordine o ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura. Subito dopo la creazione dell'ordine può rispondere 404: il pagamento
+     * viene creato in modo asincrono, qualche istante dopo, quando arriva l'evento {@code order.placed}.
+     */
     @Operation(
             summary = "Pagamento di un ordine",
             description = "Il cliente vede solo i propri pagamenti, l'ADMIN tutti.",
@@ -36,6 +46,11 @@ public class PaymentController {
         return paymentQueryService.findByOrder(orderId, authentication.getName(), isAdmin(authentication));
     }
 
+    /**
+     * {@code GET /api/v1/payments/admin?status=} — tutti i pagamenti, con filtro opzionale per stato. Solo ADMIN.
+     * <p>
+     * <b>SINCRONA</b>: sola lettura.
+     */
     @Operation(
             summary = "Elenca tutti i pagamenti",
             description = "Riservato agli amministratori.",

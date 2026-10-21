@@ -14,12 +14,12 @@ L'unica chiamata sincrona è `order-service → catalog-service` (`GET /products
 | Routing key | Pubblicato da | Code che lo ricevono |
 |---|---|---|
 | `order.placed` | order | `payment-service.order-placed` |
-| `order.confirmed` | order | `shipping-service.order-confirmed` |
-| `order.cancelled` | order | `payment-service.order-cancelled`, `shipping-service.order-cancelled` |
+| `order.confirmed` | order | `shipping-service.order-confirmed`, `notification-service.order-confirmed` |
+| `order.cancelled` | order | `payment-service.order-cancelled`, `shipping-service.order-cancelled`, `notification-service.order-cancelled` |
 | `payment.completed` | payment | `order-service.payment-completed` |
 | `payment.failed` | payment | `order-service.payment-failed` |
-| `payment.refunded` | payment | `order-service.payment-refunded` (registra la data del rimborso) |
-| `shipping.updated` | shipping | `order-service.shipping-updated` |
+| `payment.refunded` | payment | `order-service.payment-refunded` (registra la data del rimborso), `notification-service.payment-refunded` |
+| `shipping.updated` | shipping | `order-service.shipping-updated`, `notification-service.shipping-updated` |
 
 Le costanti e l'elenco delle code stanno in `EventTopology`, una classe identica in ogni servizio.
 

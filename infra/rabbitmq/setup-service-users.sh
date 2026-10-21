@@ -34,9 +34,9 @@ setup_user() { # nome servizio (order, payment, shipping), password
     put "users/$user" "{\"password\":\"$(json_string "$password")\",\"tags\":\"\"}"
     # Il punto letterale è scritto [.] e non \. : da RabbitMQ 4.3 l'API rifiuta i backslash nel JSON (errore not_json).
     put "permissions/$VHOST/$user" "{
-        \"configure\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping)-service[.].+)\$\",
-        \"write\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping)-service[.].+)\$\",
-        \"read\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping)-service[.].+)\$\"
+        \"configure\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping|notification)-service[.].+)\$\",
+        \"write\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping|notification)-service[.].+)\$\",
+        \"read\": \"^(ecommerce[.]events([.]dlx)?|(order|payment|shipping|notification)-service[.].+)\$\"
     }"
     put "topic-permissions/$VHOST/$user" "{
         \"exchange\": \"ecommerce.events\",
@@ -53,3 +53,4 @@ put "exchanges/$VHOST/ecommerce.events" '{"type":"topic","durable":true,"auto_de
 setup_user order "${ORDER_RABBITMQ_PASSWORD:-}"
 setup_user payment "${PAYMENT_RABBITMQ_PASSWORD:-}"
 setup_user shipping "${SHIPPING_RABBITMQ_PASSWORD:-}"
+setup_user notification "${NOTIFICATION_RABBITMQ_PASSWORD:-}"

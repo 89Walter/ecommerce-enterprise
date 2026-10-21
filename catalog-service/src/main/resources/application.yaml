@@ -56,6 +56,15 @@ spring:
 catalog:
   cache:
     product-ttl: ${CATALOG_PRODUCT_CACHE_TTL:10m}
+  # Generatore di descrizioni prodotto con Claude (POST /products/{id}/description-suggestion, solo ADMIN).
+  ai:
+    # Chiave dell'API Anthropic (console.anthropic.com → API Keys). Se è vuota la funzione risponde 503.
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${CATALOG_AI_MODEL:claude-opus-5-5}
+    # Per un testo di poche frasi basta poco ragionamento: risposte più rapide e meno costose.
+    effort: ${CATALOG_AI_EFFORT:low}
+    max-tokens: 4000
+    timeout: 60s
 
 security:
   jwt:

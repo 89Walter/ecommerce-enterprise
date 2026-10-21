@@ -16,13 +16,28 @@ public class RateLimitKeyResolver implements KeyResolver {
 
     static final String UNKNOWN_CLIENT = "ip:unknown";
 
+    private final String prefix;
+
+    public RateLimitKeyResolver() {
+        this("");
+    }
+
+    /**
+     * @param scope distingue i contatori di limiti diversi applicati alla stessa richiesta (es. "ai"):
+     *              Redis usa la chiave come nome del contatore, quindi due limiti con la stessa chiave
+     *              consumerebbero gettoni dallo stesso secchiello.
+     */
+    public RateLimitKeyResolver(String scope) {
+        this.prefix = scope == null || scope.isBlank() ? "" : scope + ":";
+    }
+
     @Override
     public Mono<String> resolve(ServerWebExchange exchange) {
         return exchange.getPrincipal()
                 .map(Principal::getName)
                 .filter(name -> !name.isBlank())
-                .map(name -> "user:" + name)
-                .switchIfEmpty(Mono.fromSupplier(() -> clientIp(exchange)));
+                .map(name -> prefix + "user:" + name)
+                .switchIfEmpty(Mono.fromSupplier(() -> prefix + clientIp(exchange)));
     }
 
     private static String clientIp(ServerWebExchange exchange) {

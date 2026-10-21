@@ -1,0 +1,76 @@
+server:
+  port: ${PORT:8086}
+  shutdown: graceful
+  tomcat:
+    # Niente redirect 302 da "/context-path" a "/context-path/": dietro al gateway punterebbe a un host interno.
+    redirect-context-root: false
+  servlet:
+    context-path: ${CONTEXT_PATH:/api/v1/assistant}
+
+spring:
+  config:
+    # Il .env della root del progetto (../.env) viene importato per ultimo e quindi prevale.
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  application:
+    name: assistant-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs}
+
+  # Le conversazioni sono salvate su Redis (lo stesso usato da catalog e gateway, con chiavi "assistant:*").
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+assistant:
+  ai:
+    # Chiave dell'API Anthropic (console.anthropic.com → API Keys). Se è vuota l'assistente risponde 503.
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ASSISTANT_MODEL:claude-opus-5-5}
+    # Quanto ragiona il modello prima di rispondere: "low" è adatto a una chat (risposte rapide, costi bassi).
+    effort: ${ASSISTANT_EFFORT:low}
+    max-tokens: 16000
+    # Giri massimi "il modello chiede uno strumento → lo eseguiamo" per ogni domanda.
+    max-tool-rounds: 8
+    timeout: 120s
+  services:
+    catalog-url: ${CATALOG_SERVICE_URL:http://localhost:8081/api/v1/catalog}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8082/api/v1/orders}
+    user-url: ${USER_SERVICE_URL:http://localhost:8083/api/v1/users}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8084/api/v1/payments}
+    shipment-url: ${SHIPPING_SERVICE_URL:http://localhost:8085/api/v1/shipments}
+    timeout: 5s
+  conversation:
+    ttl: 2h
+    # Domande + risposte ricordate (numero pari): oltre, si dimenticano le più vecchie.
+    max-messages: 20
+
+security:
+  jwt:
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000/realms/ecommerce}
+    audience: ${JWT_AUDIENCE:assistant-service}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Documentazione OpenAPI e Swagger UI: in produzione impostare API_DOCS_ENABLED=false.
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}

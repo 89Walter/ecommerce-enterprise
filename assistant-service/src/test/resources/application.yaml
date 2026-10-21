@@ -1,0 +1,30 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9000/realms/ecommerce/protocol/openid-connect/certs
+
+assistant:
+  ai:
+    api-key: ""
+    model: claude-opus-5-5
+    effort: low
+    max-tokens: 16000
+    max-tool-rounds: 4
+    timeout: 10s
+  services:
+    catalog-url: http://catalog.test/api/v1/catalog
+    order-url: http://order.test/api/v1/orders
+    user-url: http://user.test/api/v1/users
+    payment-url: http://payment.test/api/v1/payments
+    shipment-url: http://shipment.test/api/v1/shipments
+    timeout: 2s
+  conversation:
+    ttl: 2h
+    max-messages: 4
+
+security:
+  jwt:
+    issuer-uri: http://localhost:9000/realms/ecommerce
+    audience: assistant-service
