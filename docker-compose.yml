@@ -100,7 +100,7 @@ services:
 
   # Crea un utente RabbitMQ per servizio con i soli permessi necessari (vedi lo script).
   rabbitmq-setup:
-    image: curlimages/curl:8.22.0
+    image: curlimages/curl:8.23.0
     restart: "no"
     entrypoint: ["/bin/sh", "/setup/setup-service-users.sh"]
     environment:
