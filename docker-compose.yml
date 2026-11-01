@@ -119,7 +119,7 @@ services:
   # Casella di posta finta: riceve tutte le email (Keycloak e notification-service) e le mostra su
   # http://localhost:8025. Nessuna email esce davvero verso Internet.
   mailpit:
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.32.0
     restart: unless-stopped
     environment:
       MP_MAX_MESSAGES: 5000
